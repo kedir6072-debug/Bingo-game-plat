@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo!</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --bg: #fafafa;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #6b7280;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #16a34a;
+            --success-hover: #15803d;
+            --accent: #7c3aed;
+            --accent-hover: #6d28d9;
+            --danger: #dc2626;
+            --warning: #f59e0b;
+            --border: #e5e7eb;
+            --shadow: 0 4px 24px rgba(0,0,0,0.08);
+            --shadow-hover: 0 8px 32px rgba(0,0,0,0.12);
+            --radius: 16px;
+            --radius-sm: 10px;
+            --cell-size: 64px;
+            --gap: 4px;
+        }
+        [data-theme="dark"] {
+            --bg: #0f172a;
+            --card-bg: #1e293b;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --shadow: 0 4px 24px rgba(0,0,0,0.3);
+            --shadow-hover: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0f172a;
+                --card-bg: #1e293b;
+                --text: #f1f5f9;
+                --text-muted: #94a3b8;
+                --border: #334155;
+                --shadow: 0 4px 24px rgba(0,0,0,0.3);
+                --shadow-hover: 0 8px 32px rgba(0,0,0,0.4);
+            }
+        }
+        html { font-size: 16px; }
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: clamp(1rem, 3vw, 2rem);
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+        .app { width: 100%; max-width: 980px; display: flex; flex-direction: column; align-items: center; gap: 1.5rem; }
+        header { text-align: center; }
+        h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle { color: var(--text-muted); margin-top: 0.5rem; font-size: clamp(0.875rem, 2vw, 1rem); }
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+        }
+        .btn {
+            padding: 0.875rem 1.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); box-shadow: 0 4px 16px rgba(37,99,235,0.3); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover:not(:disabled) { background: var(--success-hover); box-shadow: 0 4px 16px rgba(22,163,74,0.3); }
+        .btn-accent { background: var(--accent); color: white; }
+        .btn-accent:hover:not(:disabled) { background: var(--accent-hover); box-shadow: 0 4px 16px rgba(124,58,237,0.3); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover:not(:disabled) { background: #b91c1c; box-shadow: 0 4px 16px rgba(220,38,38,0.3); }
+        .called-display {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: clamp(1.25rem, 3vw, 1.75rem);
+            min-width: 110px;
+            text-align: center;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 0.05em;
+        }
+        .called-display.empty { background: var(--border); color: var(--text-muted); }
+        .boards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            width: 100%;
+        }
+        @media (max-width: 640px) {
+            .boards { grid-template-columns: 1fr; }
+        }
+        .board-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            transition: box-shadow 0.2s;
+            border: 1px solid var(--border);
+        }
+        .board-card:hover { box-shadow: var(--shadow-hover); }
+        .board-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .board-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .badge {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-you { background: rgba(37,99,235,0.15); color: var(--primary); }
+        .badge-cpu { background: rgba(124,58,237,0.15); color: var(--accent); }
+        .badge-winner { background: var(--warning); color: #1a1a2e; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: var(--gap);
+            background: var(--border);
+            padding: var(--gap);
+            border-radius: var(--radius-sm);
+            aspect-ratio: 1;
+            max-width: 340px;
+            margin: 0 auto;
+        }
+        .cell {
+            aspect-ratio: 1;
+            background: var(--card-bg);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: clamp(1rem, 2.5vw, 1.25rem);
+            transition: all 0.15s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .cell::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .cell:hover:not(.free):not(.marked):not(.disabled) {
+            background: var(--border);
+            transform: scale(1.02);
+            z-index: 1;
+        }
+        .cell.marked {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: white;
+        }
+        .cell.marked::after {
+            content: '✓';
+            position: absolute;
+            font-size: 1.5em;
+            animation: check-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes check-pop { 0% { transform: scale(0); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+        .cell.free {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            font-weight: 800;
+            font-size: 0.75em;
+        }
+        .cell.free::after { content: '★'; font-size: 1.2em; }
+        .cell.called { box-shadow: inset 0 0 0 3px var(--primary); }
+        .cell.cpu-called { box-shadow: inset 0 0 0 3px var(--accent); }
+        .cell.bingo {
+            animation: bingo-glow 1s ease-in-out infinite alternate;
+        }
+        @keyframes bingo-glow {
+            0% { box-shadow: inset 0 0 0 3px var(--warning), 0 0 20px rgba(245,158,11,0.4); }
+            100% { box-shadow: inset 0 0 0 3px #fbbf24, 0 0 30px rgba(251,191,36,0.6); }
+        }
+        .cell.number-called {
+            animation: number-call 0.5s ease-out;
+        }
+        @keyframes number-call {
+            0% { transform: scale(1); box-shadow: inset 0 0 0 3px var(--primary); }
+            50% { transform: scale(1.15); box-shadow: inset 0 0 0 5px var(--primary), 0 0 20px rgba(37,99,235,0.5); }
+            100% { transform: scale(1); box-shadow: inset 0 0 0 3px var(--primary); }
+        }
+        .cell.disabled { pointer-events: none; }
+        .column-headers {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: var(--gap);
+            margin-bottom: var(--gap);
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-align: center;
+            letter-spacing: 0.1em;
+        }
+        .result-banner {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: var(--radius);
+            font-weight: 700;
+            font-size: clamp(1.25rem, 3vw, 1.75rem);
+            min-height: 3.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            animation: banner-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes banner-in { 0% { opacity: 0; transform: translateY(-20px) scale(0.9); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        .result-banner.win { background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #166534; border: 2px solid #86efac; }
+        .result-banner.lose { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b; border: 2px solid #fca5a5; }
+        .result-banner.draw { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 2px solid #fcd34d; }
+        .result-banner.hidden { display: none; }
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .stat { display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.75rem; background: var(--card-bg); border-radius: 999px; border: 1px solid var(--border); }
+        .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .history-panel {
+            width: 100%;
+            max-width: 980px;
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .history-title { font-weight: 700; font-size: 1rem; }
+        .history-count { font-size: 0.8rem; color: var(--text-muted); }
+        .history-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+        .history-chip {
+            padding: 0.4rem 0.7rem;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            animation: chip-in 0.3s ease-out backwards;
+        }
+        @keyframes chip-in { 0% { opacity: 0; transform: scale(0.8); } 100% { opacity: 1; transform: scale(1); } }
+        .history-chip.latest {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            border-color: var(--warning);
+            transform: scale(1.05);
+            z-index: 1;
+        }
+        .history-chip.b { border-left-color: var(--primary); }
+        .history-chip.i { border-left-color: var(--success); }
+        .history-chip.n { border-left-color: var(--warning); }
+        .history-chip.g { border-left-color: var(--accent); }
+        .history-chip.o { border-left-color: var(--danger); }
+        .history-chip::before {
+            content: attr(data-letter);
+            margin-right: 0.35rem;
+            padding: 0 0.35rem;
+            background: currentColor;
+            color: var(--card-bg);
+            border-radius: 4px;
+            font-size: 0.7em;
+            font-weight: 700;
+        }
+        .settings-btn {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow);
+            transition: all 0.2s;
+            z-index: 100;
+        }
+        .settings-btn:hover { box-shadow: var(--shadow-hover); transform: rotate(45deg); }
+        .settings-btn svg { width: 22px; height: 22px; stroke: var(--text); }
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+        }
+        .modal.open { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: var(--shadow-hover);
+            transform: scale(0.9);
+            transition: transform 0.2s;
+        }
+        .modal.open .modal-content { transform: scale(1); }
+        .modal-title { font-weight: 700; margin-bottom: 1rem; font-size: 1.1rem; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+        .setting-row:last-child { border-bottom: none; }
+        .setting-label { font-weight: 500; }
+        .toggle {
+            position: relative;
+            width: 52px;
+            height: 28px;
+            background: var(--border);
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .toggle.on { background: var(--primary); }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+        .toggle.on::after { transform: translateX(24px); }
+        .close-modal {
+            margin-top: 1.5rem;
+            width: 100%;
+        }
+        .stats-panel {
+            width: 100%;
+            max-width: 980px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .stat-value { font-size: 2.5rem; font-weight: 800; line-height: 1; color: var(--text); }
+        .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+        #confetti { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; overflow: hidden; }
+        .confetti-piece {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            opacity: 0;
+            animation: confetti-fall 3s ease-in forwards;
+        }
+        @keyframes confetti-fall {
+            0% { opacity: 1; transform: translateY(-100vh) rotate(0deg); }
+            100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="confetti" aria-hidden="true"></div>
+
+    <button class="settings-btn" id="settings-btn" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+    </button>
+
+    <div class="app" role="main">
+        <header>
+            <h1>Bingo!</h1>
+            <p class="subtitle">First to complete a line wins — play against the computer</p>
+        </header>
+
+        <div class="controls" role="group" aria-label="Game controls">
+            <button class="btn btn-primary" id="new-game" aria-label="Start new game">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                New Game
+            </button>
+            <button class="btn btn-success" id="call-number" aria-label="Call next number">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                Call Number
+            </button>
+            <button class="btn btn-accent" id="auto-play" aria-label="Toggle auto play">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Auto Play
+            </button>
+            <button class="btn btn-primary" id="repeat-number" aria-label="Repeat last called number" style="display:none;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                Repeat
+            </button>
+            <div class="called-display empty" id="current-call" aria-live="polite" aria-atomic="true">—</div>
+        </div>
+
+        <div class="boards" role="region" aria-label="Bingo cards">
+            <article class="board-card" aria-labelledby="player-title">
+                <div class="board-header">
+                    <h2 class="board-title" id="player-title">
+                        <span class="badge badge-you">You</span>
+                        Your Card
+                    </h2>
+                    <span class="badge" id="player-badge" hidden>Winner</span>
+                </div>
+                <div class="column-headers" aria-hidden="true">
+                    <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+                </div>
+                <div class="board-grid" id="player-board" role="grid" aria-label="Your bingo card"></div>
+            </article>
+            <article class="board-card" aria-labelledby="cpu-title">
+                <div class="board-header">
+                    <h2 class="board-title" id="cpu-title">
+                        <span class="badge badge-cpu">CPU</span>
+                        Computer
+                    </h2>
+                    <span class="badge" id="cpu-badge" hidden>Winner</span>
+                </div>
+                <div class="column-headers" aria-hidden="true">
+                    <span>B</span><span>I</span><span>N</span><span>G</span><span>O</span>
+                </div>
+                <div class="board-grid" id="computer-board" role="grid" aria-label="Computer bingo card"></div>
+            </article>
+        </div>
+
+        <div class="result-banner hidden" id="result-banner" role="alert" aria-live="assertive"></div>
+
+        <div class="stats" aria-label="Game statistics">
+            <div class="stat"><span class="stat-dot" style="background: linear-gradient(135deg, #22c55e, #16a34a);"></span> Marked</div>
+            <div class="stat"><span class="stat-dot" style="background: var(--primary);"></span> Called</div>
+            <div class="stat"><span class="stat-dot" style="background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid var(--warning);"></span> Free Space</div>
+            <div class="stat" id="streak-stat" style="display:none;"><span class="stat-dot" style="background: var(--warning);"></span> Streak: <span id="streak-count">0</span> 🔥</div>
+        </div>
+
+        <section class="stats-panel" aria-labelledby="stats-title">
+            <h3 id="stats-title" class="sr-only">Statistics</h3>
+            <article class="stat-card"><div class="stat-value" id="stat-wins">0</div><div class="stat-label">Wins</div></article>
+            <article class="stat-card"><div class="stat-value" id="stat-losses">0</div><div class="stat-label">Losses</div></article>
+            <article class="stat-card"><div class="stat-value" id="stat-draws">0</div><div class="stat-label">Draws</div></article>
+            <article class="stat-card"><div class="stat-value" id="stat-games">0</div><div class="stat-label">Games Played</div></article>
+        </section>
+
+        <div class="controls" style="margin-top: 0.5rem;">
+            <button class="btn btn-accent" id="share-btn" aria-label="Share your score">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                Share Score
+            </button>
+        </div>
+    </div>
+
+    <section class="history-panel" aria-labelledby="history-title">
+        <div class="history-header">
+            <h3 class="history-title" id="history-title">Call History</h3>
+            <span class="history-count" id="history-count">0 of 75 called</span>
+        </div>
+        <div class="history-grid" id="history" role="list" aria-label="Called numbers"></div>
+    </section>
+
+    <div class="modal" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-content">
+            <h3 class="modal-title" id="modal-title">Settings</h3>
+            <div class="setting-row">
+                <span class="setting-label">Auto-mark called numbers</span>
+                <button class="toggle" id="toggle-auto-mark" role="switch" aria-checked="true" aria-label="Auto-mark called numbers on your card"></button>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Sound effects</span>
+                <button class="toggle" id="toggle-sound" role="switch" aria-checked="false" aria-label="Enable sound effects"></button>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Announce numbers (speech)</span>
+                <button class="toggle" id="toggle-speech" role="switch" aria-checked="false" aria-label="Read out called numbers"></button>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Auto-play speed</span>
+                <select id="auto-speed" class="setting-select" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: 0.9rem;">
+                    <option value="400">Fast (400ms)</option>
+                    <option value="800" selected>Normal (800ms)</option>
+                    <option value="1500">Slow (1.5s)</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Theme</span>
+                <select id="theme-select" class="setting-select" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: 0.9rem;">
+                    <option value="system">System Default</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Computer Difficulty</span>
+                <select id="difficulty-select" class="setting-select" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: 0.9rem;">
+                    <option value="easy">Easy (misses sometimes)</option>
+                    <option value="normal" selected>Normal</option>
+                    <option value="hard">Hard (never misses)</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Win Patterns</span>
+                <select id="patterns-select" class="setting-select" style="padding: 0.4rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); font-size: 0.9rem;">
+                    <option value="lines">Lines Only</option>
+                    <option value="all" selected>Lines + Diagonals</option>
+                    <option value="full">Full House (Blackout)</option>
+                    <option value="corners">Four Corners</option>
+                    <option value="postage">Postage Stamp (2x2)</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Haptic Feedback</span>
+                <button class="toggle" id="toggle-haptic" role="switch" aria-checked="true" aria-label="Vibrate on interactions"></button>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Show Streak</span>
+                <button class="toggle" id="toggle-streak" role="switch" aria-checked="true" aria-label="Display win streak counter"></button>
+            </div>
+            <button class="btn btn-primary close-modal" id="close-modal" style="width: 100%;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const COLUMNS = { B: { min: 1, max: 15 }, I: { min: 16, max: 30 }, N: { min: 31, max: 45 }, G: { min: 46, max: 60 }, O: { min: 61, max: 75 } };
+        const COL_ORDER = ['B', 'I', 'N', 'G', 'O'];
+        const COL_CLASS = { B: 'b', I: 'i', N: 'n', G: 'g', O: 'o' };
+
+        let playerBoard = [], computerBoard = [], calledNumbers = new Set(), availableNumbers = [];
+        let gameOver = false, autoPlayInterval = null, autoMarkEnabled = true, soundEnabled = false, speechEnabled = false, autoSpeed = 800;
+        let difficulty = 'normal', winPattern = 'all', hapticEnabled = true, streakEnabled = true, theme = 'system';
+        let streak = 0, maxStreak = 0;
+        let audioCtx = null, synth = window.speechSynthesis, voicesLoaded = false;
+
+        if (synth) {
+            synth.onvoiceschanged = () => { voicesLoaded = true; };
+            if (synth.getVoices().length > 0) voicesLoaded = true;
+        }
+
+        const els = {
+            playerBoard: document.getElementById('player-board'),
+            computerBoard: document.getElementById('computer-board'),
+            message: document.getElementById('result-banner'),
+            currentCall: document.getElementById('current-call'),
+            callBtn: document.getElementById('call-number'),
+            autoBtn: document.getElementById('auto-play'),
+            newGameBtn: document.getElementById('new-game'),
+            repeatBtn: document.getElementById('repeat-number'),
+            history: document.getElementById('history'),
+            historyCount: document.getElementById('history-count'),
+            playerBadge: document.getElementById('player-badge'),
+            cpuBadge: document.getElementById('cpu-badge'),
+            settingsBtn: document.getElementById('settings-btn'),
+            modal: document.getElementById('settings-modal'),
+            closeModal: document.getElementById('close-modal'),
+            toggleAutoMark: document.getElementById('toggle-auto-mark'),
+            toggleSound: document.getElementById('toggle-sound'),
+            toggleSpeech: document.getElementById('toggle-speech'),
+            autoSpeed: document.getElementById('auto-speed'),
+            themeSelect: document.getElementById('theme-select'),
+            difficultySelect: document.getElementById('difficulty-select'),
+            patternsSelect: document.getElementById('patterns-select'),
+            toggleHaptic: document.getElementById('toggle-haptic'),
+            toggleStreak: document.getElementById('toggle-streak'),
+            statWins: document.getElementById('stat-wins'),
+            statLosses: document.getElementById('stat-losses'),
+            statDraws: document.getElementById('stat-draws'),
+            statGames: document.getElementById('stat-games'),
+            streakCount: document.getElementById('streak-count'),
+            streakStat: document.getElementById('streak-stat'),
+            shareBtn: document.getElementById('share-btn'),
+            confetti: document.getElementById('confetti'),
+        };
+
+        function loadStats() {
+            try {
+                const s = JSON.parse(localStorage.getItem('bingo-stats') || '{}');
+                els.statWins.textContent = s.wins || 0;
+                els.statLosses.textContent = s.losses || 0;
+                els.statDraws.textContent = s.draws || 0;
+                els.statGames.textContent = s.games || 0;
+                streak = s.streak || 0;
+                maxStreak = s.maxStreak || 0;
+                updateStreakDisplay();
+            } catch {}
+            loadSettings();
+        }
+
+        function loadSettings() {
+            try {
+                const s = JSON.parse(localStorage.getItem('bingo-settings') || '{}');
+                theme = s.theme || 'system';
+                difficulty = s.difficulty || 'normal';
+                winPattern = s.winPattern || 'all';
+                hapticEnabled = s.haptic !== false;
+                streakEnabled = s.streak !== false;
+                els.themeSelect.value = theme;
+                els.difficultySelect.value = difficulty;
+                els.patternsSelect.value = winPattern;
+                els.toggleHaptic.classList.toggle('on', hapticEnabled);
+                els.toggleHaptic.setAttribute('aria-checked', hapticEnabled);
+                els.toggleStreak.classList.toggle('on', streakEnabled);
+                els.toggleStreak.setAttribute('aria-checked', streakEnabled);
+                applyTheme();
+            } catch {}
+        }
+
+        function saveSettings() {
+            try {
+                localStorage.setItem('bingo-settings', JSON.stringify({
+                    theme, difficulty, winPattern, haptic: hapticEnabled, streak: streakEnabled
+                }));
+            } catch {}
+        }
+
+        function applyTheme() {
+            document.documentElement.setAttribute('data-theme', theme === 'system' ? '' : theme);
+        }
+
+        function saveStats(result) {
+            try {
+                const s = JSON.parse(localStorage.getItem('bingo-stats') || '{}');
+                s.games = (s.games || 0) + 1;
+                if (result === 'win') {
+                    s.wins = (s.wins || 0) + 1;
+                    streak++;
+                    if (streak > maxStreak) maxStreak = streak;
+                } else if (result === 'lose') {
+                    s.losses = (s.losses || 0) + 1;
+                    streak = 0;
+                } else {
+                    s.draws = (s.draws || 0) + 1;
+                    streak = 0;
+                }
+                s.streak = streak;
+                s.maxStreak = maxStreak;
+                localStorage.setItem('bingo-stats', JSON.stringify(s));
+                loadStats();
+            } catch {}
+        }
+
+        function updateStreakDisplay() {
+            els.streakCount.textContent = streak;
+            els.streakStat.style.display = (streakEnabled && streak > 0) ? 'flex' : 'none';
+        }
+
+        function haptic(type) {
+            if (!hapticEnabled || !navigator.vibrate) return;
+            const patterns = { mark: [10], call: [20], win: [50, 50, 50, 50, 100], lose: [200], new: [30, 30] };
+            navigator.vibrate(patterns[type] || [10]);
+        }
+
+        function checkWinPattern(boardEl, board) {
+            const marked = new Set();
+            boardEl.querySelectorAll('.cell.marked').forEach(c => marked.add(`${c.dataset.row},${c.dataset.col}`));
+
+            const lines = [];
+            if (winPattern === 'lines' || winPattern === 'all') {
+                for (let r = 0; r < 5; r++) lines.push([`${r},0`, `${r},1`, `${r},2`, `${r},3`, `${r},4`]);
+                for (let c = 0; c < 5; c++) lines.push([`0,${c}`, `1,${c}`, `2,${c}`, `3,${c}`, `4,${c}`]);
+            }
+            if (winPattern === 'all' || winPattern === 'full') {
+                lines.push(['0,0', '1,1', '2,2', '3,3', '4,4']);
+                lines.push(['0,4', '1,3', '2,2', '3,1', '4,0']);
+            }
+            if (winPattern === 'full') {
+                const all = [];
+                for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) all.push(`${r},${c}`);
+                lines.push(all);
+            }
+            if (winPattern === 'corners') {
+                lines.push(['0,0', '0,4', '4,0', '4,4']);
+            }
+            if (winPattern === 'postage') {
+                for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+                    lines.push([`${r},${c}`, `${r},${c+1}`, `${r+1},${c}`, `${r+1},${c+1}`]);
+                }
+            }
+
+            for (const line of lines) {
+                if (line.every(p => marked.has(p))) {
+                    line.forEach(p => { const [r, c] = p.split(','); const cell = boardEl.querySelector(`[data-row="${r}"][data-col="${c}"]`); if (cell) cell.classList.add('bingo'); });
+                    return true;
+                }
+            }
+            return false;
+        }
+        function saveStats(result) {
+            try {
+                const s = JSON.parse(localStorage.getItem('bingo-stats') || '{}');
+                s.games = (s.games || 0) + 1;
+                if (result === 'win') s.wins = (s.wins || 0) + 1;
+                else if (result === 'lose') s.losses = (s.losses || 0) + 1;
+                else s.draws = (s.draws || 0) + 1;
+                localStorage.setItem('bingo-stats', JSON.stringify(s));
+                loadStats();
+            } catch {}
+        }
+
+        function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+        function generateColumn(letter) { const { min, max } = COLUMNS[letter]; const nums = []; for (let i = min; i <= max; i++) nums.push(i); return shuffle(nums).slice(0, 5); }
+        function createBoard() { const b = []; for (const l of COL_ORDER) b.push(generateColumn(l)); b[2][2] = 'FREE'; return b; }
+        function getLetter(n) { if (n <= 15) return 'B'; if (n <= 30) return 'I'; if (n <= 45) return 'N'; if (n <= 60) return 'G'; return 'O'; }
+
+        function renderBoard(boardEl, board, isPlayer) {
+            boardEl.innerHTML = '';
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 5; col++) {
+                    const val = board[col][row];
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row; cell.dataset.col = col;
+                    cell.setAttribute('role', 'gridcell');
+                    cell.setAttribute('aria-label', val === 'FREE' ? 'Free space' : `${COL_ORDER[col]}-${val}`);
+
+                    if (val === 'FREE') {
+                        cell.classList.add('free', 'marked');
+                        cell.textContent = 'FREE';
+                        cell.setAttribute('aria-pressed', 'true');
+                    } else {
+                        cell.textContent = val;
+                        const letter = COL_ORDER[col];
+                        cell.classList.add(COL_CLASS[letter]);
+                        const isCalled = calledNumbers.has(val);
+                        if (isCalled) {
+                            cell.classList.add('marked', isPlayer ? 'called' : 'cpu-called');
+                            cell.setAttribute('aria-pressed', 'true');
+                        }
+                    }
+                    if (isPlayer && val !== 'FREE') {
+                        cell.addEventListener('click', () => toggleMark(row, col));
+                        cell.setAttribute('tabindex', '0');
+                        cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleMark(row, col); } });
+                    }
+                    boardEl.appendChild(cell);
+                }
+            }
+        }
+
+        function toggleMark(row, col) {
+            if (gameOver) return;
+            const val = playerBoard[col][row];
+            if (val === 'FREE') return;
+            const cell = els.playerBoard.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            if (calledNumbers.has(val)) {
+                cell.classList.remove('marked', 'called');
+                cell.setAttribute('aria-pressed', 'false');
+            } else {
+                cell.classList.add('marked');
+                cell.setAttribute('aria-pressed', 'true');
+            }
+            playSound('mark');
+            checkBingos();
+        }
+
+        function callNumber() {
+            if (gameOver || availableNumbers.length === 0) return;
+            const idx = Math.floor(Math.random() * availableNumbers.length);
+            const num = availableNumbers.splice(idx, 1)[0];
+            calledNumbers.add(num);
+            const letter = getLetter(num);
+
+            const displayText = `${letter}-${num}`;
+            els.currentCall.textContent = displayText;
+            els.currentCall.className = 'called-display ' + COL_CLASS[letter];
+            els.currentCall.setAttribute('aria-label', `${letter} ${num}`);
+
+            const chip = document.createElement('div');
+            chip.className = `history-chip ${COL_CLASS[letter]} latest`;
+            chip.dataset.letter = letter;
+            chip.textContent = num;
+            chip.setAttribute('role', 'listitem');
+            els.history.prepend(chip);
+            document.querySelectorAll('.history-chip.latest').forEach((c, i) => { if (i > 0) c.classList.remove('latest'); });
+
+            els.historyCount.textContent = `${calledNumbers.size} of 75 called`;
+
+            animateCall(num, letter);
+            updateBoards();
+            checkBingos();
+
+            if (speechEnabled) speakNumber(letter, num);
+
+            if (availableNumbers.length === 0) { els.callBtn.disabled = true; els.autoBtn.disabled = true; if (!gameOver) endGame('draw'); }
+        }
+
+        let lastCalled = null;
+
+        function numberToWords(n) {
+            const ones = ['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+            const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy'];
+            if (n < 20) return ones[n];
+            const t = Math.floor(n / 10);
+            const o = n % 10;
+            return tens[t] + (o ? '-' + ones[o] : '');
+        }
+
+        function speakNumber(letter, num) {
+            if (!synth) return;
+            lastCalled = { letter, num };
+            const words = `${letter} ${numberToWords(num)}`;
+            const utter = new SpeechSynthesisUtterance(words);
+            utter.rate = 0.85; utter.pitch = 1; utter.volume = 0.9;
+            utter.lang = 'en-US';
+            const voices = synth.getVoices();
+            const preferred = voices.find(v => v.name.includes('Google') || v.name.includes('Microsoft') || v.name.includes('Samantha') || v.name.includes('Alex'));
+            if (preferred) utter.voice = preferred;
+            synth.speak(utter);
+            els.repeatBtn.style.display = 'inline-flex';
+        }
+
+        function repeatLastNumber() {
+            if (lastCalled && speechEnabled) speakNumber(lastCalled.letter, lastCalled.num);
+        }
+
+        function animateCall(num, letter) {
+            [...els.playerBoard.querySelectorAll('.cell'), ...els.computerBoard.querySelectorAll('.cell')].forEach(c => {
+                if (c.textContent == num && c.textContent !== 'FREE') c.classList.add('number-called');
+            });
+            setTimeout(() => {
+                [...els.playerBoard.querySelectorAll('.cell'), ...els.computerBoard.querySelectorAll('.cell')].forEach(c => c.classList.remove('number-called'));
+            }, 500);
+            playSound('call');
+        }
+
+        function updateBoards() {
+            renderBoard(els.playerBoard, playerBoard, true);
+            renderBoard(els.computerBoard, computerBoard, false);
+        }
+
+        function checkBingos() {
+            const playerBingo = checkWinPattern(els.playerBoard, playerBoard);
+            const cpuBingo = checkWinPattern(els.computerBoard, computerBoard);
+            if (playerBingo && cpuBingo) endGame('draw');
+            else if (playerBingo) endGame('win');
+            else if (cpuBingo) endGame('lose');
+        }
+
+        function endGame(result) {
+            gameOver = true; stopAutoPlay();
+            els.callBtn.disabled = true; els.autoBtn.disabled = true;
+            els.message.className = 'result-banner ' + result;
+            els.message.hidden = false;
+            if (result === 'win') {
+                els.message.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> BINGO! You Win! 🎉';
+                els.playerBadge.hidden = false; els.playerBadge.className = 'badge badge-winner';
+                playSound('win');
+                launchConfetti();
+            } else if (result === 'lose') {
+                els.message.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Computer Wins! 🤖';
+                els.cpuBadge.hidden = false; els.cpuBadge.className = 'badge badge-winner';
+                playSound('lose');
+            } else {
+                els.message.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> Draw — No more numbers! 🤝';
+                playSound('draw');
+            }
+            saveStats(result);
+        }
+
+        function launchConfetti() {
+            const colors = ['#f59e0b', '#2563eb', '#16a34a', '#7c3aed', '#dc2626', '#ec4899', '#06b6d4'];
+            for (let i = 0; i < 100; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'confetti-piece';
+                piece.style.left = Math.random() * 100 + '%';
+                piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+                piece.style.width = piece.style.height = (Math.random() * 8 + 6) + 'px';
+                piece.style.animationDelay = (Math.random() * 0.5) + 's';
+                piece.style.animationDuration = (Math.random() * 1.5 + 2) + 's';
+                els.confetti.appendChild(piece);
+            }
+            setTimeout(() => { els.confetti.innerHTML = ''; }, 4000);
+        }
+
+        function newGame() {
+            stopAutoPlay();
+            calledNumbers.clear(); availableNumbers = Array.from({length: 75}, (_, i) => i + 1);
+            gameOver = false;
+            els.message.className = 'result-banner hidden'; els.message.hidden = true;
+            els.currentCall.textContent = '—'; els.currentCall.className = 'called-display empty';
+            els.callBtn.disabled = false; els.autoBtn.disabled = false;
+            els.autoBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Auto Play';
+            els.history.innerHTML = ''; els.historyCount.textContent = '0 of 75 called';
+            els.playerBadge.hidden = true; els.cpuBadge.hidden = true; els.playerBadge.className = 'badge badge-you'; els.cpuBadge.className = 'badge badge-cpu';
+            playerBoard = createBoard(); computerBoard = createBoard();
+            updateBoards();
+            playSound('new');
+        }
+
+        function startAutoPlay() { if (autoPlayInterval) return; els.autoBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Stop Auto'; autoPlayInterval = setInterval(() => { if (gameOver || availableNumbers.length === 0) { stopAutoPlay(); return; } callNumber(); }, autoSpeed); }
+        function stopAutoPlay() { if (autoPlayInterval) { clearInterval(autoPlayInterval); autoPlayInterval = null; els.autoBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Auto Play'; } }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            haptic(type);
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const ctx = audioCtx; const now = ctx.currentTime;
+            const osc = ctx.createOscillator(); const gain = ctx.createGain();
+            osc.connect(gain); gain.connect(ctx.destination);
+            switch(type) {
+                case 'call': osc.type = 'sine'; osc.frequency.setValueAtTime(523.25, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); osc.start(now); osc.stop(now + 0.3); break;
+                case 'mark': osc.type = 'square'; osc.frequency.setValueAtTime(659.25, now); gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15); osc.start(now); osc.stop(now + 0.15); break;
+                case 'win': [659.25, 783.99, 987.77, 1318.51].forEach((f, i) => { const o = ctx.createOscillator(); const g = ctx.createGain(); o.connect(g); g.connect(ctx.destination); o.type = 'sine'; o.frequency.value = f; g.gain.setValueAtTime(0.1, now + i * 0.1); g.gain.exponentialRampToValueAtTime(0.001, now + 0.5 + i * 0.1); o.start(now + i * 0.1); o.stop(now + 0.6 + i * 0.1); }); break;
+                case 'lose': osc.type = 'sawtooth'; osc.frequency.setValueAtTime(220, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5); osc.start(now); osc.stop(now + 0.5); break;
+                case 'draw': osc.type = 'triangle'; osc.frequency.setValueAtTime(440, now); gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3); osc.start(now); osc.stop(now + 0.3); break;
+                case 'new': osc.type = 'sine'; osc.frequency.setValueAtTime(392, now); gain.gain.setValueAtTime(0.08, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2); osc.start(now); osc.stop(now + 0.2); setTimeout(() => { const o2 = ctx.createOscillator(); const g2 = ctx.createGain(); o2.connect(g2); g2.connect(ctx.destination); o2.type = 'sine'; o2.frequency.value = 523.25; g2.gain.setValueAtTime(0.08, ctx.currentTime); g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2); o2.start(); o2.stop(ctx.currentTime + 0.2); }, 100); break;
+            }
+        }
+
+        function shareScore() {
+            const wins = els.statWins.textContent;
+            const losses = els.statLosses.textContent;
+            const draws = els.statDraws.textContent;
+            const games = els.statGames.textContent;
+            const text = `🎮 Bingo Score!\nWins: ${wins} | Losses: ${losses} | Draws: ${draws}\nGames: ${games} | Streak: ${streak} 🔥`;
+            if (navigator.share) {
+                navigator.share({ title: 'My Bingo Score', text }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(text).then(() => {
+                    const original = els.shareBtn.innerHTML;
+                    els.shareBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied!';
+                    setTimeout(() => { els.shareBtn.innerHTML = original; }, 1500);
+                });
+            }
+        }
+
+        function openModal() { els.modal.classList.add('open'); els.closeModal.focus(); }
+        function closeModal() { els.modal.classList.remove('open'); els.settingsBtn.focus(); }
+
+        els.callBtn.addEventListener('click', callNumber);
+        els.newGameBtn.addEventListener('click', newGame);
+        els.autoBtn.addEventListener('click', () => autoPlayInterval ? stopAutoPlay() : startAutoPlay());
+        els.repeatBtn.addEventListener('click', repeatLastNumber);
+        els.settingsBtn.addEventListener('click', openModal);
+        els.closeModal.addEventListener('click', closeModal);
+        els.modal.addEventListener('click', e => { if (e.target === els.modal) closeModal(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && els.modal.classList.contains('open')) closeModal(); });
+
+        els.toggleAutoMark.addEventListener('click', () => { autoMarkEnabled = !autoMarkEnabled; els.toggleAutoMark.classList.toggle('on', autoMarkEnabled); els.toggleAutoMark.setAttribute('aria-checked', autoMarkEnabled); });
+        els.toggleSound.addEventListener('click', () => { soundEnabled = !soundEnabled; els.toggleSound.classList.toggle('on', soundEnabled); els.toggleSound.setAttribute('aria-checked', soundEnabled); if (soundEnabled && !audioCtx) playSound('new'); });
+        els.toggleSpeech.addEventListener('click', () => { speechEnabled = !speechEnabled; els.toggleSpeech.classList.toggle('on', speechEnabled); els.toggleSpeech.setAttribute('aria-checked', speechEnabled); });
+        els.autoSpeed.addEventListener('change', () => { autoSpeed = parseInt(els.autoSpeed.value); if (autoPlayInterval) { stopAutoPlay(); startAutoPlay(); } });
+        els.themeSelect.addEventListener('change', () => { theme = els.themeSelect.value; applyTheme(); saveSettings(); });
+        els.difficultySelect.addEventListener('change', () => { difficulty = els.difficultySelect.value; saveSettings(); });
+        els.patternsSelect.addEventListener('change', () => { winPattern = els.patternsSelect.value; saveSettings(); });
+        els.toggleHaptic.addEventListener('click', () => { hapticEnabled = !hapticEnabled; els.toggleHaptic.classList.toggle('on', hapticEnabled); els.toggleHaptic.setAttribute('aria-checked', hapticEnabled); saveSettings(); });
+        els.toggleStreak.addEventListener('click', () => { streakEnabled = !streakEnabled; els.toggleStreak.classList.toggle('on', streakEnabled); els.toggleStreak.setAttribute('aria-checked', streakEnabled); updateStreakDisplay(); saveSettings(); });
+        els.shareBtn.addEventListener('click', shareScore);
+
+        document.addEventListener('keydown', e => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); callNumber(); }
+            else if (e.key === 'r' || e.key === 'R') { repeatLastNumber(); }
+            else if (e.key === 'n' || e.key === 'N') { newGame(); }
+        });
+
+        loadStats();
+        newGame();
+    </script>
+</body>
+</html>
